@@ -4,6 +4,7 @@ import Sidebar from './Sidebar'
 import UserDetails from './UserDetails'
 import PaymentMethods from './PaymentMethods'
 import SEO from '../../components/SEO'
+import Cookies from 'js-cookie'
 
 export default function ProfilePage() {
   const [section, setSection] = useState('details') // 'details' | 'payments'
@@ -17,6 +18,8 @@ export default function ProfilePage() {
       try {
         const me = await UserAPI.me()
         if (mounted) setUser(me)
+      } catch (error) {
+        console.error('❌ Failed to load user data:', error)
       } finally {
         if (mounted) setLoading(false)
       }
@@ -43,10 +46,12 @@ export default function ProfilePage() {
           country: user?.billingAddress?.country || 'RO',
         },
       }
+      
       const updated = await UserAPI.updateMe(payload)
       setUser(updated)
       setMessage('Salvat')
-    } catch {
+    } catch (error) {
+      console.error('Error saving user:', error)
       setMessage('Eroare la salvare')
     }
   }

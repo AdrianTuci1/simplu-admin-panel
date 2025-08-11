@@ -1,5 +1,6 @@
 import axios from 'axios'
 
+
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL,
 })
@@ -12,11 +13,46 @@ export function setAuthTokenGetter(getterFn) {
 
 api.interceptors.request.use(async (config) => {
   if (typeof tokenGetter === 'function') {
-    const token = await tokenGetter()
-    if (token) config.headers.Authorization = `Bearer ${token}`
+    try {
+      const token = await tokenGetter()
+      if (token) {
+        config.headers.Authorization = `Bearer ${token}`
+        console.log('🔑 Request authorized:', config.method?.toUpperCase(), config.url)
+      } else {
+        console.warn('⚠️ No token available for request:', config.method?.toUpperCase(), config.url)
+      }
+    } catch (error) {
+      console.error('❌ Error getting auth token for request:', error)
+    }
+  } else {
+    console.warn('⚠️ No token getter configured')
   }
   return config
 })
+
+// Add response interceptor for better error handling
+api.interceptors.response.use(
+  (response) => {
+    console.log('✅ API Response:', response.config.method?.toUpperCase(), response.config.url, response.status)
+    return response
+  },
+  (error) => {
+    console.error('❌ API Error:', {
+      method: error.config?.method?.toUpperCase(),
+      url: error.config?.url,
+      status: error.response?.status,
+      message: error.response?.data?.message || error.message
+    })
+
+    // Handle authentication errors
+    if (error.response?.status === 401) {
+      console.error('🔐 Authentication error - token may be invalid or expired')
+      // Could trigger re-authentication here if needed
+    }
+
+    return Promise.reject(error)
+  }
+)
 
 export const BusinessAPI = {
   createBusiness: (payload) => api.post('/businesses', payload).then((r) => r.data),
@@ -37,7 +73,18 @@ export const BusinessAPI = {
 }
 
 export const UserAPI = {
-  me: () => api.get('/users/me').then((r) => r.data),
+  me: () => {
+    console.log('👤 Fetching user data...')
+    return api.get('/users/me')
+      .then((r) => {
+        console.log('✅ User data loaded:', r.data?.email)
+        return r.data
+      })
+      .catch((error) => {
+        console.error('❌ Failed to load user data:', error.response?.data?.message || error.message)
+        throw error
+      })
+  },
   updateMe: (payload) => api.put('/users/me', payload).then((r) => r.data),
   addPaymentMethod: (payload) => api.post('/users/me/payment-methods', payload).then((r) => r.data),
   getPaymentMethods: () => api.get('/users/me/payment-methods').then((r) => r.data),

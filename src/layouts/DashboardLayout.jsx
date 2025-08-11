@@ -4,6 +4,7 @@ import { Button } from '../components/ui/button'
 import { signOutRedirect } from '../auth/OidcProvider'
 import { UserAPI, PaymentAPI } from '../lib/api'
 import { FiFileText, FiCreditCard, FiLogOut } from 'react-icons/fi'
+import Cookies from 'js-cookie'
 
 const navItems = [
   { to: '/', label: 'Acasă', icon: '🏠' },
@@ -23,10 +24,18 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     let mounted = true
-    UserAPI.me().then((u) => {
-      if (!mounted) return
-      setUser(u)
-    }).catch(() => {})
+    console.log('👤 DashboardLayout: Loading user data...')
+    
+    UserAPI.me()
+      .then((u) => {
+        if (!mounted) return
+        console.log('✅ DashboardLayout: User loaded successfully:', u?.email)
+        setUser(u)
+      })
+      .catch((error) => {
+        if (!mounted) return
+        console.error('❌ DashboardLayout: Failed to load user:', error)
+      })
     return () => { mounted = false }
   }, [])
 

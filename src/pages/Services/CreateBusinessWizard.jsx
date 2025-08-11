@@ -11,32 +11,66 @@ import LaunchStep from './steps/LaunchStep'
 
 const totalSteps = 7
 
-export default function CreateBusinessWizard({ onClose, onSuccess }) {
+export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdit, onUpdateSuccess }) {
   const [step, setStep] = useState(1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [createdBusiness, setCreatedBusiness] = useState(null)
+  const [createdBusiness, setCreatedBusiness] = useState(businessToEdit)
   const [paymentSetup, setPaymentSetup] = useState(null)
 
-  const [form, setForm] = useState({
-    // Step 1-5 - Configuration
-    companyName: '',
-    registrationNumber: '',
-    taxCode: '',
-    businessType: 'dental',
-    subscriptionType: 'solo',
-    locations: [
-      { id: 'loc-1', name: 'Locație 1', address: '', timezone: 'Europe/Bucharest', active: true },
-    ],
-    domainType: 'subdomain',
-    domainLabel: '',
-    customTld: 'ro',
-    clientPageType: 'website',
-    configureForEmail: '', // pentru configurarea altcuiva
-    settings: {
-      currency: 'RON',
-      language: 'ro'
+  const isEditMode = Boolean(businessToEdit)
+
+  const [form, setForm] = useState(() => {
+    if (businessToEdit) {
+      // Populate form with existing business data
+      return {
+        companyName: businessToEdit.companyName || '',
+        registrationNumber: businessToEdit.registrationNumber || '',
+        taxCode: businessToEdit.taxCode || '',
+        businessType: businessToEdit.businessType || 'dental',
+        subscriptionType: businessToEdit.subscriptionType || 'solo',
+        locations: businessToEdit.locations?.length > 0 
+          ? businessToEdit.locations.map((loc, index) => ({
+              id: loc.id || `loc-${index + 1}`,
+              name: loc.name || '',
+              address: loc.address || '',
+              timezone: loc.timezone || 'Europe/Bucharest',
+              active: Boolean(loc.active)
+            }))
+          : [{ id: 'loc-1', name: 'Locație 1', address: '', timezone: 'Europe/Bucharest', active: true }],
+        domainType: businessToEdit.domainType || 'subdomain',
+        domainLabel: businessToEdit.domainLabel || '',
+        customTld: businessToEdit.customTld || 'ro',
+        clientPageType: businessToEdit.clientPageType || 'website',
+        configureForEmail: businessToEdit.configureForEmail || '',
+        settings: {
+          currency: businessToEdit.settings?.currency || 'RON',
+          language: businessToEdit.settings?.language || 'ro'
+        }
+      }
+    }
+    
+    // Default form for new business
+    return {
+      // Step 1-5 - Configuration
+      companyName: '',
+      registrationNumber: '',
+      taxCode: '',
+      businessType: 'dental',
+      subscriptionType: 'solo',
+      locations: [
+        { id: 'loc-1', name: 'Locație 1', address: '', timezone: 'Europe/Bucharest', active: true },
+      ],
+      domainType: 'subdomain',
+      domainLabel: '',
+      customTld: 'ro',
+      clientPageType: 'website',
+      configureForEmail: '', // pentru configurarea altcuiva
+      settings: {
+        currency: 'RON',
+        language: 'ro'
+      }
     }
   })
 
@@ -79,12 +113,24 @@ export default function CreateBusinessWizard({ onClose, onSuccess }) {
         subscriptionType: form.subscriptionType,
       }
 
-      const business = await BusinessAPI.configureBusiness(payload)
-      setCreatedBusiness(business)
-      setMessage('Business configurat cu succes! Status: suspended. Acum poți configura plata.')
-      nextStep()
+      let business
+      if (isEditMode) {
+        // Update existing business
+        business = await BusinessAPI.updateBusiness(businessToEdit.businessId, payload)
+        setCreatedBusiness(business)
+        setMessage('Business actualizat cu succes!')
+        if (onUpdateSuccess) {
+          onUpdateSuccess(business)
+        }
+      } else {
+        // Create new business
+        business = await BusinessAPI.configureBusiness(payload)
+        setCreatedBusiness(business)
+        setMessage('Business configurat cu succes! Status: suspended. Acum poți configura plata.')
+        nextStep()
+      }
     } catch (e) {
-      setError('Configurarea business-ului a eșuat: ' + (e.response?.data?.message || e.message))
+      setError((isEditMode ? 'Actualizarea' : 'Configurarea') + ' business-ului a eșuat: ' + (e.response?.data?.message || e.message))
     } finally {
       setSaving(false)
     }
@@ -136,14 +182,14 @@ export default function CreateBusinessWizard({ onClose, onSuccess }) {
     2: <LocationsStep form={form} updateForm={updateForm} />,
     3: <DomainStep form={form} updateForm={updateForm} />,
     4: <SettingsStep form={form} updateForm={updateForm} />,
-    5: <ReviewStep form={form} createdBusiness={createdBusiness} />,
-    6: <PaymentStep 
+    5: <ReviewStep form={form} createdBusiness={createdBusiness} isEditMode={isEditMode} />,
+    6: !isEditMode && <PaymentStep 
          form={form} 
          createdBusiness={createdBusiness} 
          paymentSetup={paymentSetup}
          onSetupPayment={handleSetupPayment}
        />,
-    7: <LaunchStep 
+    7: !isEditMode && <LaunchStep 
          form={form} 
          createdBusiness={createdBusiness} 
          paymentSetup={paymentSetup}
@@ -157,7 +203,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess }) {
       2: 'Locații',
       3: 'Domeniu',
       4: 'Setări & Contacte',
-      5: 'Configurare Business',
+      5: isEditMode ? 'Actualizare Business' : 'Configurare Business',
       6: 'Configurare Plată',
       7: 'Lansare Business'
     }
@@ -170,7 +216,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess }) {
       2: 'Configurați locațiile business-ului',
       3: 'Configurați domeniul și tipul de pagină client',
       4: 'Setări generale și informații de contact',
-      5: 'Creați business-ul cu status suspended',
+      5: isEditMode ? 'Actualizați informațiile business-ului' : 'Creați business-ul cu status suspended',
       6: 'Configurați subscription-ul Stripe pentru plată',
       7: 'Lansați business-ul după confirmarea plății'
     }
@@ -204,13 +250,13 @@ export default function CreateBusinessWizard({ onClose, onSuccess }) {
             <Button onClick={nextStep}>Continuă</Button>
           ) : step === 5 ? (
             <Button onClick={handleConfigureBusiness} disabled={saving}>
-              {saving ? 'Se configurează...' : 'Configurează Business'}
+              {saving ? (isEditMode ? 'Se actualizează...' : 'Se configurează...') : (isEditMode ? 'Actualizează Business' : 'Configurează Business')}
             </Button>
-          ) : step === 6 ? (
+          ) : !isEditMode && step === 6 ? (
             <Button onClick={() => handleSetupPayment({})} disabled={saving}>
               {saving ? 'Se configurează plata...' : 'Configurează Plata'}
             </Button>
-          ) : step === 7 ? (
+          ) : !isEditMode && step === 7 ? (
             <Button onClick={handleLaunchBusiness} disabled={saving}>
               {saving ? 'Se lansează...' : 'Lansează Business'}
             </Button>

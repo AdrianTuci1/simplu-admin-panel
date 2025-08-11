@@ -1,8 +1,9 @@
-import { BusinessAPI } from '../../lib/api'
+import { BusinessAPI, UserAPI } from '../../lib/api'
 import { Button } from '../../components/ui/button'
 import { useEffect, useState } from 'react'
 import CreateBusinessWizard from './CreateBusinessWizard'
 import SEO from '../../components/SEO'
+import Cookies from 'js-cookie'
 
 export default function Services() {
   const [created, setCreated] = useState(null)
@@ -10,15 +11,71 @@ export default function Services() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [wizardOpen, setWizardOpen] = useState(false)
+  const [currentUser, setCurrentUser] = useState(null)
+  const [editingBusiness, setEditingBusiness] = useState(null)
 
   useEffect(() => {
     let mounted = true
-    BusinessAPI.listBusinesses()
-      .then((items) => mounted && setList(Array.isArray(items) ? items : []))
-      .catch(() => setError('Nu s-a putut încărca lista'))
-      .finally(() => mounted && setLoading(false))
+    // Load current user first
+    console.log('👤 Services: Loading user data...')
+    
+    UserAPI.me()
+      .then((user) => {
+        if (mounted) {
+          console.log('✅ Services: User loaded successfully:', user?.email)
+          setCurrentUser(user)
+        }
+      })
+      .catch((error) => {
+        console.error('❌ Services: Failed to load user:', error)
+      })
+      .finally(() => {
+        // Then load businesses
+        BusinessAPI.listBusinesses()
+          .then((items) => mounted && setList(Array.isArray(items) ? items : []))
+          .catch(() => setError('Nu s-a putut încărca lista'))
+          .finally(() => mounted && setLoading(false))
+      })
     return () => { mounted = false }
   }, [created])
+
+  // Function to check if current user can configure payment for a business
+  function canConfigurePayment(business) {
+    if (!currentUser) return false
+    
+    // If configureForEmail is empty/null, current user can configure payment
+    if (!business.configureForEmail || business.configureForEmail === '') {
+      return true
+    }
+    
+    // If configureForEmail is set, only that specific user can configure payment
+    return business.configureForEmail === currentUser.email
+  }
+
+  // Function to check if current user can launch business (same logic as payment)
+  function canLaunchBusiness(business) {
+    return canConfigurePayment(business)
+  }
+
+  function openEditWizard(business) {
+    setEditingBusiness(business)
+    setWizardOpen(true)
+  }
+
+  function closeWizard() {
+    setWizardOpen(false)
+    setEditingBusiness(null)
+  }
+
+  function handleBusinessCreated(business) {
+    setCreated(business)
+    closeWizard()
+  }
+
+  function handleBusinessUpdated(business) {
+    setList((prev) => prev.map((b) => (b.businessId === business.businessId ? business : b)))
+    closeWizard()
+  }
 
   async function updateBusiness(businessId, payload) {
     try {
@@ -51,11 +108,6 @@ export default function Services() {
     } catch (e) {
       setError('Lansarea business-ului a eșuat: ' + e.message)
     }
-  }
-
-  function handleBusinessCreated(business) {
-    setCreated(business)
-    setWizardOpen(false)
   }
 
   function getStatusBadge(status, paymentStatus) {
@@ -105,8 +157,10 @@ export default function Services() {
 
         {wizardOpen && (
           <CreateBusinessWizard 
-            onClose={() => setWizardOpen(false)}
+            onClose={closeWizard}
             onSuccess={handleBusinessCreated}
+            businessToEdit={editingBusiness}
+            onUpdateSuccess={handleBusinessUpdated}
           />
         )}
 
@@ -118,6 +172,16 @@ export default function Services() {
               <p><strong>ID:</strong> {created.businessId}</p>
               <p><strong>Status:</strong> {created.status} • {created.paymentStatus}</p>
               <p><strong>Owner:</strong> {created.ownerEmail}</p>
+            </div>
+          </section>
+        )}
+
+        {import.meta.env.DEV && currentUser && (
+          <section className="rounded-md border p-4 bg-blue-50" aria-label="Debug info">
+            <h2 className="font-medium text-blue-800 mb-2">🔧 Debug Info</h2>
+            <div className="text-sm text-blue-700 space-y-1">
+              <p><strong>Utilizator curent:</strong> {currentUser.email}</p>
+              <p><strong>Business-uri:</strong> {list.length}</p>
             </div>
           </section>
         )}
@@ -139,24 +203,28 @@ export default function Services() {
                     <div>
                       <h3 className="font-medium">{b.companyName}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {b.businessType} • {b.ownerEmail}
+                        {b.businessType} • {b.subscriptionType} • 
+                        {b.configureForEmail && b.configureForEmail !== '' && (
+                          <span className="ml-2 text-xs text-blue-600">
+                            (configurat pentru {b.configureForEmail})
+                          </span>
+                        )}
                       </p>
                     </div>
-                    {getStatusBadge(b.status, b.paymentStatus)}
-                  </div>
-                  
-                  <div className="mb-3">
-                    <label htmlFor={`company-name-${b.businessId}`} className="mb-1 block text-sm font-medium">Nume companie</label>
-                    <input
-                      id={`company-name-${b.businessId}`}
-                      className="w-full rounded-md border bg-background px-3 py-2"
-                      defaultValue={b.companyName}
-                      onBlur={(e) => updateBusiness(b.businessId, { companyName: e.target.value })}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => openEditWizard(b)}
+                      >
+                        Edit
+                      </Button>
+                      {getStatusBadge(b.status, b.paymentStatus)}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    {b.status === 'suspended' && b.paymentStatus === 'unpaid' && (
+                    {b.status === 'suspended' && b.paymentStatus === 'unpaid' && canConfigurePayment(b) && (
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -165,7 +233,12 @@ export default function Services() {
                         Configurează Plată
                       </Button>
                     )}
-                    {b.status === 'suspended' && b.paymentStatus !== 'unpaid' && (
+                    {b.status === 'suspended' && b.paymentStatus === 'unpaid' && !canConfigurePayment(b) && (
+                      <span className="text-sm text-muted-foreground">
+                        {b.configureForEmail ? `Plata trebuie configurată de ${b.configureForEmail}` : 'Plata trebuie configurată de owner'}
+                      </span>
+                    )}
+                    {b.status === 'suspended' && b.paymentStatus !== 'unpaid' && canLaunchBusiness(b) && (
                       <Button 
                         size="sm" 
                         variant="outline"
@@ -173,6 +246,11 @@ export default function Services() {
                       >
                         Lansează Business
                       </Button>
+                    )}
+                    {b.status === 'suspended' && b.paymentStatus !== 'unpaid' && !canLaunchBusiness(b) && (
+                      <span className="text-sm text-muted-foreground">
+                        {b.configureForEmail ? `Business-ul trebuie lansat de ${b.configureForEmail}` : 'Business-ul trebuie lansat de owner'}
+                      </span>
                     )}
                     {b.status === 'active' && (
                       <span className="text-sm text-green-600">✅ Business activ</span>

@@ -63,11 +63,10 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="font-medium">{b.companyName || b.businessName}</p>
-                      <p className="text-sm text-muted-foreground">{b.status}</p>
+                      <p className="text-sm text-muted-foreground">
+                        {b.status} • {b.locations?.length || 0} locații
+                      </p>
                     </div>
-                    <Button variant="outline" onClick={() => (window.location.href = `/plati?businessId=${b.businessId}`)}>
-                      Abonament
-                    </Button>
                   </div>
                 </li>
               ))}
