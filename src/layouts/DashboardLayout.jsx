@@ -2,8 +2,9 @@ import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Button } from '../components/ui/button'
 import { signOutRedirect } from '../auth/OidcProvider'
+import { useAuth } from 'react-oidc-context'
 import { UserAPI, PaymentAPI } from '../lib/api'
-import { FiFileText, FiCreditCard, FiLogOut } from 'react-icons/fi'
+import { FiLogOut } from 'react-icons/fi'
 import Cookies from 'js-cookie'
 
 const navItems = [
@@ -14,6 +15,7 @@ const navItems = [
 
 export default function DashboardLayout() {
   const navigate = useNavigate()
+  const auth = useAuth()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false)
   const [rightPanel, setRightPanel] = useState('user') // 'user' | 'payments'
@@ -23,6 +25,16 @@ export default function DashboardLayout() {
   const [invoicesLoading, setInvoicesLoading] = useState(false)
 
   useEffect(() => {
+    // Only make API calls when authentication is ready and user is authenticated
+    if (auth.isLoading || !auth.isAuthenticated || !auth.user) {
+      console.log('⏳ DashboardLayout: Waiting for authentication...', {
+        isLoading: auth.isLoading,
+        isAuthenticated: auth.isAuthenticated,
+        hasUser: !!auth.user
+      })
+      return
+    }
+
     let mounted = true
     console.log('👤 DashboardLayout: Loading user data...')
     
@@ -37,7 +49,7 @@ export default function DashboardLayout() {
         console.error('❌ DashboardLayout: Failed to load user:', error)
       })
     return () => { mounted = false }
-  }, [])
+  }, [auth.isLoading, auth.isAuthenticated, auth.user])
 
   function openRightPanel(type) {
     setRightPanel(type)
@@ -62,6 +74,20 @@ export default function DashboardLayout() {
     if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
     return (parts[0][0] + parts[1][0]).toUpperCase()
   })()
+
+  // Show loading state while authentication is in progress
+  if (auth.isLoading || !auth.isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-sm text-muted-foreground">
+            {auth.isLoading ? 'Se încarcă autentificarea...' : 'Se redirecționează...'}
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground flex">

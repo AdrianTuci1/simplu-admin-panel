@@ -17,12 +17,9 @@ export default defineConfig({
           // Separate vendor chunks for better caching
           vendor: ['react', 'react-dom'],
           router: ['react-router-dom'],
-          auth: ['react-oidc-context', 'oidc-client-ts'],
-          ui: ['lucide-react', 'react-icons'],
-          forms: ['react-hook-form', '@hookform/resolvers', 'zod'],
-          payments: ['@stripe/react-stripe-js', '@stripe/stripe-js'],
-          aws: ['aws-amplify', '@aws-amplify/ui-react'],
-          utils: ['axios', 'js-cookie', 'clsx', 'class-variance-authority', 'tailwind-merge']
+          auth: ['react-oidc-context'],
+          ui: ['react-icons'],
+          payments: ['@stripe/react-stripe-js', '@stripe/stripe-js']
         }
       }
     },
@@ -42,8 +39,9 @@ export default defineConfig({
   
   // Optimize development server
   server: {
+    allowedHosts: true,
     port: 3000,
-    host: true
+    host: true,
   },
   
   // Optimize preview server

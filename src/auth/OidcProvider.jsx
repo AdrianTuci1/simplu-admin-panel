@@ -81,6 +81,14 @@ export function OidcTokenBridge({ children }) {
   
   // Set up token getter with better error handling
   useEffect(() => {
+    console.log('🔗 OidcTokenBridge: Setting up token getter')
+    console.log('🔗 OidcTokenBridge: Auth state:', {
+      isLoading: auth.isLoading,
+      isAuthenticated: auth.isAuthenticated,
+      hasUser: !!auth.user,
+      user: auth.user
+    })
+    
     setAuthTokenGetter(async () => {
       try {
         if (!auth.user) {
@@ -88,13 +96,56 @@ export function OidcTokenBridge({ children }) {
           return null
         }
         
-        const token = auth.user.access_token || auth.user.id_token
+        console.log('🔍 Available tokens in user object:', {
+          hasAccessToken: !!auth.user.access_token,
+          hasIdToken: !!auth.user.id_token,
+          hasRefreshToken: !!auth.user.refresh_token,
+          tokenExpiresAt: auth.user.expires_at
+        })
+        
+        // For Cognito, we should use access_token for API calls, not id_token
+        const token = auth.user.access_token
+        console.log('🔑 Token type being used:', token ? 'access_token' : 'no token')
+        console.log('🔑 Available tokens:', {
+          access_token: !!auth.user.access_token,
+          id_token: !!auth.user.id_token,
+          refresh_token: !!auth.user.refresh_token
+        })
         if (!token) {
-          console.warn('⚠️ No token found in user object')
+          console.warn('⚠️ No access_token found in user object')
           return null
         }
         
+        // Check if token is expired
+        if (auth.user.expires_at) {
+          const now = Math.floor(Date.now() / 1000)
+          if (auth.user.expires_at < now) {
+            console.warn('⚠️ Token is expired, expires_at:', auth.user.expires_at, 'current time:', now)
+            // Try to trigger token refresh
+            try {
+              await auth.signinSilent()
+              console.log('🔄 Token refreshed successfully')
+              return auth.user.access_token
+            } catch (refreshError) {
+              console.error('❌ Failed to refresh token:', refreshError)
+              return null
+            }
+          }
+        }
+        
         console.log('🔑 Token retrieved successfully')
+        console.log('🔑 Token type:', auth.user.access_token ? 'access_token' : 'id_token')
+        console.log('🔑 Token length:', token.length)
+        console.log('🔑 Token preview:', token.substring(0, 20) + '...')
+        
+        // Check if token is in valid JWT format (should have 3 parts separated by dots)
+        const tokenParts = token.split('.')
+        if (tokenParts.length !== 3) {
+          console.warn('⚠️ Token does not appear to be in valid JWT format')
+        } else {
+          console.log('✅ Token appears to be in valid JWT format')
+        }
+        
         return token
       } catch (error) {
         console.error('❌ Error getting auth token:', error)

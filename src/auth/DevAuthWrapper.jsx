@@ -4,7 +4,10 @@ import AuthWall from './AuthWall'
 import { setAuthTokenGetter } from '../lib/api'
 
 // Dev mode authentication bypass
-const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
+const DEV_MODE = false // Force production mode
+console.log('🔧 DevAuthWrapper: VITE_DEV_MODE =', import.meta.env.VITE_DEV_MODE)
+console.log('🔧 DevAuthWrapper: DEV_MODE =', DEV_MODE)
+console.log('🔧 DevAuthWrapper: FORCED PRODUCTION MODE')
 
 
 
@@ -12,6 +15,8 @@ const DEV_MODE = import.meta.env.VITE_DEV_MODE === 'true'
 function DevModeWrapper({ children }) {
 
   useEffect(() => {
+    console.log('🔧 DevAuthWrapper: DEV_MODE =', DEV_MODE)
+    
     if (DEV_MODE) {
       // In dev mode, bypass authentication
       console.log('🔧 Running in DEV MODE - Authentication bypassed')
