@@ -12,12 +12,14 @@ export function setAuthTokenGetter(getterFn) {
 }
 
 api.interceptors.request.use(async (config) => {
+  console.log('🌐 Making API request:', config.method?.toUpperCase(), config.url)
+  
   if (typeof tokenGetter === 'function') {
     try {
       const token = await tokenGetter()
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
-        console.log('🔑 Request authorized:', config.method?.toUpperCase(), config.url)
+        console.log('🔑 Request authorized with token:', config.method?.toUpperCase(), config.url)
       } else {
         console.warn('⚠️ No token available for request:', config.method?.toUpperCase(), config.url)
       }
@@ -25,7 +27,7 @@ api.interceptors.request.use(async (config) => {
       console.error('❌ Error getting auth token for request:', error)
     }
   } else {
-    console.warn('⚠️ No token getter configured')
+    console.warn('⚠️ No token getter configured for request:', config.method?.toUpperCase(), config.url)
   }
   return config
 })

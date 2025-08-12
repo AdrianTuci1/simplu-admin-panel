@@ -86,7 +86,15 @@ export default function PaymentMethods({ user, onDefaultChange }) {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [showAdd, setShowAdd] = useState(false)
-  const stripePromise = getStripe()
+  const [stripePromise, setStripePromise] = useState(null)
+
+  // Load Stripe only when needed and user is authenticated
+  useEffect(() => {
+    if (showAdd && user) {
+      console.log('💳 Loading Stripe for PaymentMethods...')
+      getStripe().then(setStripePromise)
+    }
+  }, [showAdd, user])
 
   async function load() {
     setLoading(true)

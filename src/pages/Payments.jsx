@@ -150,6 +150,12 @@ export default function Payments() {
   const stripeOptions = useMemo(() => ({ locale: 'ro' }), [])
 
   useEffect(() => {
+    // Only load Stripe if user is authenticated and not in OIDC flow
+    if (!user) {
+      console.log('⏳ Waiting for user authentication before loading Stripe')
+      return
+    }
+    
     let mounted = true
     setStripeLoading(true)
     getStripe()
@@ -176,7 +182,7 @@ export default function Payments() {
     return () => {
       mounted = false
     }
-  }, [])
+  }, [user])
 
   function handleSubscriptionSuccess(subscriptionData) {
     // Refresh subscriptions after successful creation

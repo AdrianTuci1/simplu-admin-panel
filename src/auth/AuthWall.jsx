@@ -1,67 +1,11 @@
 import { useEffect, useRef } from 'react'
 import { useAuth } from 'react-oidc-context'
-import Cookies from 'js-cookie'
-
-// Debug function to check storage state
-function debugStorageState() {
-  console.log('🔍 Debug Storage State:')
-  
-  try {
-    const allCookies = Cookies.get()
-    console.log('🍪 All cookies:', allCookies)
-    
-    // Check for OIDC related keys
-    const oidcKeys = Object.keys(allCookies).filter(key => key.includes('oidc'))
-    console.log('🔐 OIDC keys in cookies:', oidcKeys)
-    
-    if (oidcKeys.length > 0) {
-      oidcKeys.forEach(key => {
-        try {
-          const value = Cookies.get(key)
-          console.log(`🔐 ${key}:`, value ? 'present' : 'null')
-        } catch (e) {
-          console.log(`🔐 ${key}: error reading`)
-        }
-      })
-    }
-    
-    // Check for user related keys
-    const userKeys = Object.keys(allCookies).filter(key => key.includes('user_'))
-    console.log('👤 User keys in cookies:', userKeys)
-    
-    if (userKeys.length > 0) {
-      userKeys.forEach(key => {
-        try {
-          const value = Cookies.get(key)
-          console.log(`👤 ${key}:`, value ? 'present' : 'null')
-        } catch (e) {
-          console.log(`👤 ${key}: error reading`)
-        }
-      })
-    }
-  } catch (error) {
-    console.error('❌ Error checking storage state:', error)
-  }
-}
 
 export default function AuthWall({ children }) {
   const auth = useAuth()
   const redirectingRef = useRef(false)
 
   useEffect(() => {
-    console.log('🔐 AuthWall state:', {
-      isLoading: auth.isLoading,
-      isAuthenticated: auth.isAuthenticated,
-      activeNavigator: auth.activeNavigator,
-      user: auth.user ? 'present' : 'null',
-      error: auth.error?.message
-    })
-
-    // Debug storage state if there are authentication issues
-    if (auth.error || (!auth.isAuthenticated && !auth.isLoading)) {
-      debugStorageState()
-    }
-
     if (auth.isLoading) {
       console.log('⏳ Auth is loading...')
       return

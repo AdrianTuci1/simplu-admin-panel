@@ -1,9 +1,12 @@
 import { AuthProvider, useAuth } from 'react-oidc-context'
+import { useEffect } from 'react'
 import { setAuthTokenGetter } from '../lib/api'
 import Cookies from 'js-cookie'
 
 export function OidcConfigProvider({ children }) {
   const cognitoDomain = import.meta.env.VITE_COGNITO_DOMAIN
+  
+
   const cognitoAuthConfig = {
     authority: cognitoDomain,
     client_id: import.meta.env.VITE_COGNITO_CLIENT_ID,
@@ -16,45 +19,11 @@ export function OidcConfigProvider({ children }) {
     // Add token management
     automaticSilentRenew: true,
     silent_redirect_uri: import.meta.env.VITE_APP_URL || window.location.origin,
-    // Add storage configuration using cookies for better session persistence
-    stateStore: {
-      get: (key) => {
-        try {
-          return Cookies.get(key)
-        } catch (e) {
-          console.warn('Failed to get from cookies:', e)
-          return null
-        }
-      },
-      set: (key, value) => {
-        try {
-          // Set cookie with secure options
-          Cookies.set(key, value, {
-            expires: 7, // 7 days
-            secure: window.location.protocol === 'https:',
-            sameSite: 'strict',
-            path: '/'
-          })
-        } catch (e) {
-          console.warn('Failed to set in cookies:', e)
-        }
-      },
-      remove: (key) => {
-        try {
-          Cookies.remove(key, { path: '/' })
-        } catch (e) {
-          console.warn('Failed to remove from cookies:', e)
-        }
-      },
-      getAllKeys: () => {
-        try {
-          return Object.keys(Cookies.get())
-        } catch (e) {
-          console.warn('Failed to get cookie keys:', e)
-          return []
-        }
-      }
-    },
+    // Add state management configuration
+    loadUserInfo: true,
+    // Add PKCE for better security
+    code_challenge_method: 'S256',
+
     // Manual configuration for AWS Cognito endpoints
     metadata: {
       issuer: cognitoDomain,
@@ -78,35 +47,16 @@ export function OidcConfigProvider({ children }) {
       {...cognitoAuthConfig}
       onSigninCallback={(user) => {
         console.log('✅ User signed in:', user?.profile?.email)
-        // Store user info in cookies for persistence
-        try {
-          if (user?.profile?.email) {
-            Cookies.set('user_email', user.profile.email, {
-              expires: 7,
-              secure: window.location.protocol === 'https:',
-              sameSite: 'strict',
-              path: '/'
-            })
-          }
-        } catch (e) {
-          console.warn('Failed to store user email in cookie:', e)
-        }
         
-        // remove OIDC artifacts from callback url
+        // Remove OIDC artifacts from callback url
         const url = new URL(window.location.href)
         url.searchParams.delete('code')
         url.searchParams.delete('state')
         url.searchParams.delete('session_state')
-        window.history.replaceState({}, document.title, url.pathname + (url.search ? `?${url.searchParams.toString()}` : ''))
+        window.history.replaceState({}, document.title, url.pathname)
       }}
       onSignoutCallback={() => {
         console.log('🚪 User signed out')
-        // Clear user cookies
-        try {
-          Cookies.remove('user_email', { path: '/' })
-        } catch (e) {
-          console.warn('Failed to clear user cookie:', e)
-        }
       }}
       onSilentRenewError={(error) => {
         console.error('❌ Silent renew error:', error)
@@ -120,27 +70,44 @@ export function OidcConfigProvider({ children }) {
 export function OidcTokenBridge({ children }) {
   const auth = useAuth()
   
+  useEffect(() => {
+    console.log('🔗 OidcTokenBridge: Auth state changed', {
+      isLoading: auth.isLoading,
+      isAuthenticated: auth.isAuthenticated,
+      hasUser: !!auth.user,
+      error: auth.error?.message
+    })
+  }, [auth.isLoading, auth.isAuthenticated, auth.user, auth.error])
+  
   // Set up token getter with better error handling
-  setAuthTokenGetter(async () => {
-    try {
-      if (!auth.user) {
-        console.warn('⚠️ No user found in auth context')
+  useEffect(() => {
+    setAuthTokenGetter(async () => {
+      try {
+        if (!auth.user) {
+          console.warn('⚠️ No user found in auth context')
+          return null
+        }
+        
+        const token = auth.user.access_token || auth.user.id_token
+        if (!token) {
+          console.warn('⚠️ No token found in user object')
+          return null
+        }
+        
+        console.log('🔑 Token retrieved successfully')
+        return token
+      } catch (error) {
+        console.error('❌ Error getting auth token:', error)
         return null
       }
-      
-      const token = auth.user.access_token || auth.user.id_token
-      if (!token) {
-        console.warn('⚠️ No token found in user object')
-        return null
-      }
-      
-      console.log('🔑 Token retrieved successfully')
-      return token
-    } catch (error) {
-      console.error('❌ Error getting auth token:', error)
-      return null
+    })
+    
+    // Cleanup function to clear token getter when component unmounts
+    return () => {
+      console.log('🧹 Cleaning up token getter')
+      setAuthTokenGetter(null)
     }
-  })
+  }, [auth.user])
   
   return children
 }
