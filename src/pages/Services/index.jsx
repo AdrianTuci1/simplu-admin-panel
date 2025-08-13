@@ -9,7 +9,7 @@ export default function Services() {
   const [created, setCreated] = useState(null)
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [_error, setError] = useState(null)
   const [wizardOpen, setWizardOpen] = useState(false)
   const [currentUser, setCurrentUser] = useState(null)
   const [editingBusiness, setEditingBusiness] = useState(null)
@@ -38,6 +38,7 @@ export default function Services() {
       })
     return () => { mounted = false }
   }, [created])
+
 
   // Function to check if current user can configure payment for a business
   function canConfigurePayment(business) {
@@ -77,27 +78,34 @@ export default function Services() {
     closeWizard()
   }
 
-  async function updateBusiness(businessId, payload) {
-    try {
-      const updated = await BusinessAPI.updateBusiness(businessId, payload)
-      setList((prev) => prev.map((b) => (b.businessId === businessId ? updated : b)))
-    } catch (e) {
-      setError('Actualizarea business-ului a eșuat')
-    }
-  }
+  // async function updateBusiness(businessId, payload) {
+  //   try {
+  //     const updated = await BusinessAPI.updateBusiness(businessId, payload)
+  //     setList((prev) => prev.map((b) => (b.businessId === businessId ? updated : b)))
+  //   } catch (e) {
+  //     setError('Actualizarea business-ului a eșuat')
+  //   }
+  // }
 
-  async function setupPayment(businessId) {
-    try {
-      const payment = await BusinessAPI.setupPayment(businessId, {
-        subscriptionType: 'solo',
-        planKey: 'basic',
-        billingInterval: 'month',
-        currency: 'ron'
-      })
-      alert(`Plata configurată! Client Secret: ${payment.clientSecret}`)
-    } catch (e) {
-      setError('Configurarea plății a eșuat: ' + e.message)
-    }
+  // async function setupPayment(businessId) {
+  //   try {
+  //     const payment = await BusinessAPI.setupPayment(businessId, {
+  //       subscriptionType: 'solo',
+  //     planKey: 'basic',
+  //     billingInterval: 'month',
+  //     currency: 'ron'
+  //   })
+  //   alert(`Plata configurată! Client Secret: ${payment.clientSecret}`)
+  // } catch (e) {
+  //   setError('Configurarea plății a eșuat: ' + e.message)
+  // }
+  // }
+
+  // Function to open payment modal for direct payment
+  function openPaymentModal(business) {
+    // Open wizard directly at payment step for this business
+    setEditingBusiness(business)
+    setWizardOpen(true)
   }
 
   async function launchBusiness(businessId) {
@@ -161,6 +169,7 @@ export default function Services() {
             onSuccess={handleBusinessCreated}
             businessToEdit={editingBusiness}
             onUpdateSuccess={handleBusinessUpdated}
+            startAtPaymentStep={editingBusiness && editingBusiness.status === 'suspended' && editingBusiness.paymentStatus === 'unpaid'}
           />
         )}
 
@@ -203,7 +212,7 @@ export default function Services() {
                     <div>
                       <h3 className="font-medium">{b.companyName}</h3>
                       <p className="text-sm text-muted-foreground">
-                        {b.businessType} • {b.subscriptionType} • 
+                        {b.businessType} • 
                         {b.configureForEmail && b.configureForEmail !== '' && (
                           <span className="ml-2 text-xs text-blue-600">
                             (configurat pentru {b.configureForEmail})
@@ -228,9 +237,9 @@ export default function Services() {
                       <Button 
                         size="sm" 
                         variant="outline"
-                        onClick={() => setupPayment(b.businessId)}
+                        onClick={() => openPaymentModal(b)}
                       >
-                        Configurează Plată
+                        Plătește Acum
                       </Button>
                     )}
                     {b.status === 'suspended' && b.paymentStatus === 'unpaid' && !canConfigurePayment(b) && (

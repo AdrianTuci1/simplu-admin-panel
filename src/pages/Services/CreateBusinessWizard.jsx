@@ -11,13 +11,13 @@ import LaunchStep from './steps/LaunchStep'
 
 const totalSteps = 7
 
-export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdit, onUpdateSuccess }) {
-  const [step, setStep] = useState(1)
+export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdit, onUpdateSuccess, startAtPaymentStep = false }) {
+  const [step, setStep] = useState(startAtPaymentStep ? 6 : 1)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const [createdBusiness, setCreatedBusiness] = useState(businessToEdit)
-  const [paymentSetup, setPaymentSetup] = useState(null)
+
 
   const isEditMode = Boolean(businessToEdit)
 
@@ -27,9 +27,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
       return {
         companyName: businessToEdit.companyName || '',
         registrationNumber: businessToEdit.registrationNumber || '',
-        taxCode: businessToEdit.taxCode || '',
         businessType: businessToEdit.businessType || 'dental',
-        subscriptionType: businessToEdit.subscriptionType || 'solo',
         locations: businessToEdit.locations?.length > 0 
           ? businessToEdit.locations.map((loc, index) => ({
               id: loc.id || `loc-${index + 1}`,
@@ -56,9 +54,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
       // Step 1-5 - Configuration
       companyName: '',
       registrationNumber: '',
-      taxCode: '',
       businessType: 'dental',
-      subscriptionType: 'solo',
       locations: [
         { id: 'loc-1', name: 'Locație 1', address: '', timezone: 'Europe/Bucharest', active: true },
       ],
@@ -96,7 +92,6 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
       const payload = {
         companyName: form.companyName,
         registrationNumber: form.registrationNumber,
-        taxCode: form.taxCode,
         businessType: form.businessType,
         locations: form.locations.map((l) => ({ 
           name: l.name, 
@@ -110,7 +105,6 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
         domainLabel: form.domainLabel,
         customTld: form.customTld,
         clientPageType: form.clientPageType,
-        subscriptionType: form.subscriptionType,
       }
 
       let business
@@ -136,25 +130,22 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
     }
   }
 
-  // Step 6: Setup Payment
-  async function handleSetupPayment(paymentData) {
+
+
+  // Handle direct payment completion
+  async function handlePaymentComplete() {
     setSaving(true)
     setError('')
     setMessage('')
     
     try {
-      const payload = {
-        subscriptionType: paymentData.subscriptionType || form.subscriptionType,
-        billingInterval: paymentData.billingInterval || 'month',
-        currency: paymentData.currency || form.settings.currency.toLowerCase()
-      }
-
-      const payment = await BusinessAPI.setupPayment(createdBusiness.businessId, payload)
-      setPaymentSetup(payment)
-      setMessage('Plata configurată! Client Secret: ' + payment.clientSecret)
+      // Update business status after successful payment
+      const updatedBusiness = await BusinessAPI.getBusiness(createdBusiness.businessId)
+      setCreatedBusiness(updatedBusiness)
+      setMessage('Plata completă! Business-ul este gata pentru lansare.')
       nextStep()
     } catch (e) {
-      setError('Configurarea plății a eșuat: ' + (e.response?.data?.message || e.message))
+      setError('Actualizarea statusului business-ului a eșuat: ' + (e.response?.data?.message || e.message))
     } finally {
       setSaving(false)
     }
@@ -183,16 +174,14 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
     3: <DomainStep form={form} updateForm={updateForm} />,
     4: <SettingsStep form={form} updateForm={updateForm} />,
     5: <ReviewStep form={form} createdBusiness={createdBusiness} isEditMode={isEditMode} />,
-    6: !isEditMode && <PaymentStep 
+    6: <PaymentStep 
          form={form} 
-         createdBusiness={createdBusiness} 
-         paymentSetup={paymentSetup}
-         onSetupPayment={handleSetupPayment}
+         createdBusiness={createdBusiness || businessToEdit} 
+         onPaymentComplete={handlePaymentComplete}
        />,
-    7: !isEditMode && <LaunchStep 
+    7: <LaunchStep 
          form={form} 
-         createdBusiness={createdBusiness} 
-         paymentSetup={paymentSetup}
+         createdBusiness={createdBusiness || businessToEdit} 
          onLaunchBusiness={handleLaunchBusiness}
        />,
   }
@@ -204,7 +193,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
       3: 'Domeniu',
       4: 'Setări & Contacte',
       5: isEditMode ? 'Actualizare Business' : 'Configurare Business',
-      6: 'Configurare Plată',
+      6: startAtPaymentStep ? 'Plată Business' : 'Configurare Plată',
       7: 'Lansare Business'
     }
     return titles[step] || `Pasul ${step}`
@@ -217,7 +206,7 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
       3: 'Configurați domeniul și tipul de pagină client',
       4: 'Setări generale și informații de contact',
       5: isEditMode ? 'Actualizați informațiile business-ului' : 'Creați business-ul cu status suspended',
-      6: 'Configurați subscription-ul Stripe pentru plată',
+      6: startAtPaymentStep ? 'Plătiți pentru business-ul configurat' : 'Configurați subscription-ul Stripe pentru plată',
       7: 'Lansați business-ul după confirmarea plății'
     }
     return descriptions[step] || ''
@@ -252,11 +241,10 @@ export default function CreateBusinessWizard({ onClose, onSuccess, businessToEdi
             <Button onClick={handleConfigureBusiness} disabled={saving}>
               {saving ? (isEditMode ? 'Se actualizează...' : 'Se configurează...') : (isEditMode ? 'Actualizează Business' : 'Configurează Business')}
             </Button>
-          ) : !isEditMode && step === 6 ? (
-            <Button onClick={() => handleSetupPayment({})} disabled={saving}>
-              {saving ? 'Se configurează plata...' : 'Configurează Plata'}
-            </Button>
-          ) : !isEditMode && step === 7 ? (
+          ) : step === 6 ? (
+            // Payment step - no button needed as PaymentManager handles it
+            null
+          ) : step === 7 ? (
             <Button onClick={handleLaunchBusiness} disabled={saving}>
               {saving ? 'Se lansează...' : 'Lansează Business'}
             </Button>

@@ -2,9 +2,7 @@ export default function ReviewStep({ form, createdBusiness, isEditMode }) {
   const reviewData = {
     companyName: form.companyName,
     registrationNumber: form.registrationNumber,
-    taxCode: form.taxCode,
     businessType: form.businessType,
-    subscriptionType: form.subscriptionType,
     locations: form.locations,
     domainType: form.domainType,
     domainLabel: form.domainLabel,
@@ -27,7 +25,6 @@ export default function ReviewStep({ form, createdBusiness, isEditMode }) {
               <div className="text-sm space-y-1">
                 <p><strong>Nume:</strong> {form.companyName}</p>
                 <p><strong>Nr. Reg. Com.:</strong> {form.registrationNumber}</p>
-                <p><strong>CUI:</strong> {form.taxCode}</p>
                 <p><strong>Tip Business:</strong> {form.businessType}</p>
               </div>
             </div>
@@ -63,7 +60,6 @@ export default function ReviewStep({ form, createdBusiness, isEditMode }) {
               <h5 className="font-medium text-sm mb-2">Contacte & Configurare</h5>
               <div className="text-sm space-y-1">
                 <p><strong>Configurare pentru:</strong> {form.configureForEmail || 'Utilizatorul curent'}</p>
-                <p><strong>Subscription Type:</strong> {form.subscriptionType}</p>
               </div>
             </div>
           </div>

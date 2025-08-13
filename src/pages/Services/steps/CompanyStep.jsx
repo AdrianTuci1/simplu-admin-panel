@@ -9,48 +9,25 @@ export default function CompanyStep({ form, updateForm }) {
           onChange={(e) => updateForm({ companyName: e.target.value })} 
         />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium">CUI/CIF</label>
-          <input 
-            className="w-full rounded-md border bg-background px-3 py-2" 
-            value={form.registrationNumber} 
-            onChange={(e) => updateForm({ registrationNumber: e.target.value })} 
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">Cod TVA</label>
-          <input 
-            className="w-full rounded-md border bg-background px-3 py-2" 
-            value={form.taxCode} 
-            onChange={(e) => updateForm({ taxCode: e.target.value })} 
-          />
-        </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">CUI/CIF</label>
+        <input 
+          className="w-full rounded-md border bg-background px-3 py-2" 
+          value={form.registrationNumber} 
+          onChange={(e) => updateForm({ registrationNumber: e.target.value })} 
+        />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-medium">Tip business</label>
-          <select 
-            className="w-full rounded-md border bg-background px-3 py-2" 
-            value={form.businessType} 
-            onChange={(e) => updateForm({ businessType: e.target.value })}
-          >
-            <option value="dental">Dental</option>
-            <option value="gym">Gym</option>
-            <option value="hotel">Hotel</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-medium">Tip abonament</label>
-          <select 
-            className="w-full rounded-md border bg-background px-3 py-2" 
-            value={form.subscriptionType} 
-            onChange={(e) => updateForm({ subscriptionType: e.target.value })}
-          >
-            <option value="solo">Solo</option>
-            <option value="enterprise">Enterprise</option>
-          </select>
-        </div>
+      <div>
+        <label className="mb-1 block text-sm font-medium">Tip business</label>
+        <select 
+          className="w-full rounded-md border bg-background px-3 py-2" 
+          value={form.businessType} 
+          onChange={(e) => updateForm({ businessType: e.target.value })}
+        >
+          <option value="dental">Dental</option>
+          <option value="gym">Gym</option>
+          <option value="hotel">Hotel</option>
+        </select>
       </div>
     </div>
   )
